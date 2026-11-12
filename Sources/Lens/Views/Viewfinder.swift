@@ -1,4 +1,5 @@
 import AVFoundation
+import AppKit
 import SwiftUI
 
 struct Viewfinder: View {
@@ -11,7 +12,17 @@ struct Viewfinder: View {
         ZStack {
             Theme.viewfinder
 
-            if isAuthorized, let renderer = camera.renderer {
+            if let fakeImage = camera.fakeFramePreviewImage {
+                // 自检截图专用：用静态图代替 MTKView，画面才能被捕获。
+                // 必须用 Color.clear 打底 —— 直接放 Image 会按原始像素尺寸撑大整个布局。
+                Color.clear
+                    .overlay {
+                        Image(nsImage: fakeImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    }
+                    .clipped()
+            } else if isAuthorized, let renderer = camera.renderer {
                 CameraPreview(renderer: renderer, isMirrored: camera.isMirrored)
             }
 

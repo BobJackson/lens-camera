@@ -249,6 +249,10 @@ final class CameraModel: NSObject, ObservableObject {
     private var fakeFrameImage: CIImage?
     private var fakeFrameBusy = false
 
+    /// 自检模式下用普通 Image 呈现假帧。
+    /// MTKView 的内容由 GPU 直接呈现，`CALayer.render` 抓不到，截图会是全黑。
+    @Published private(set) var fakeFramePreviewImage: NSImage?
+
     /// 按 30fps 把一张静态图灌进渲染管线，处理不过来时丢帧 ——
     /// 和 `alwaysDiscardsLateVideoFrames` 的行为一致，用来复现真实采集负载。
     private func startFakeFrames(path: String) {
@@ -257,6 +261,15 @@ final class CameraModel: NSObject, ObservableObject {
             return
         }
         fakeFrameImage = image
+        // 自检截图用：转成普通 NSImage，避开 MTKView 抓不到画面的问题。
+        if let cgImage = CIContext().createCGImage(image, from: image.extent) {
+            fakeFramePreviewImage = NSImage(
+                cgImage: cgImage,
+                size: NSSize(width: cgImage.width, height: cgImage.height)
+            )
+        }
+        // 假帧模式下视同已授权，否则取景框会被权限引导盖住。
+        authorization = .authorized
         status = .running
 
         fakeFrameTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
